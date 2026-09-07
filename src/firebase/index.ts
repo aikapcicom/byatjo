@@ -1,9 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
-import dotenv from 'dotenv';
-
-// Ensure environment variables are loaded even if this module is imported before app.ts calls config()
-dotenv.config();
 
 // Helper to normalize env values (trim and strip surrounding quotes)
 const norm = (v: string | undefined): string | undefined => {

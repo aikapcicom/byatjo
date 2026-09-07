@@ -33,6 +33,13 @@ Build and start (production):
 - Health: `GET /`
 - Auth: `/auth`
 - API: `/api`
+- Interactive Swagger UI: `/docs`
+- OpenAPI JSON: `/docs.json`
+
+## Documentation
+
+- HTTP actions: [docs/actions.md](docs/actions.md)
+- Socket.IO events: [docs/sockets.md](docs/sockets.md)
 
 ## API Documentation
 

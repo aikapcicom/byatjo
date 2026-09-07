@@ -1,6 +1,3 @@
-// Load environment variables first
-require('dotenv').config();
-
 import express, { Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import {

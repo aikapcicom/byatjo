@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
@@ -15,13 +16,17 @@ import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import actionsRouter from '../Routes/actions';
 import DriversRouter from './api/Drivers';
-require('dotenv').config();
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from './config/swagger';
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
 // Hide Express signature
 app.disable('x-powered-by');
+
+app.get('/docs.json', (_req, res) => res.json(swaggerDocument));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Connect to DB
 DBConnection();
