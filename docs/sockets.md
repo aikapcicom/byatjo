@@ -51,7 +51,7 @@ Coordinates use `{ lat: number, lng: number }`, with latitude `-90..90` and long
 
 ## Rooms and flow
 
-The implementation uses `drivers:online` for driver notifications and `trip:<tripId>` for trip communication. A normal client flow is:
+The implementation uses `drivers:online` for driver notifications and `trip:<tripId>` for trip communication. `user:identify` additionally places identified drivers in the legacy `drivers_online` room. A normal client flow is:
 
 1. Connect.
 2. Send `user:identify`.
