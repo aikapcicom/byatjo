@@ -1,7 +1,4 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const REQUIRED_VARS = ['EMAIL_USER', 'EMAIL_PASS'] as const;
 
