@@ -417,7 +417,7 @@ router.post(
       }
 
       const trip = await Trip.findByIdAndUpdate(
-        tripId,
+        { _id: tripId },
         { $set: { status } },
         { new: true },
       );
@@ -616,7 +616,7 @@ router.post(
       }
 
       const trip = await Trip.findByIdAndUpdate(
-        tripId,
+        { _id: tripId },
         {
           $set: {
             status: 'completed',

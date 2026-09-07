@@ -412,7 +412,7 @@ export default (io: Server, socket: Socket) => {
         isScheduled,
         tripTime,
         status: trip.status,
-        initialFare,
+        initialFare: initialFare ? initialFare : 0,
       });
       const pickupPoint = {
         type: 'Point',
@@ -524,6 +524,7 @@ export default (io: Server, socket: Socket) => {
       const notAllow = await Trip.findOne({
         driverId: driverId,
         status: { $in: ['accepted', 'running', 'started'] },
+        _id: { $ne: tripId },
       });
       if (notAllow) {
         cb?.({
@@ -543,7 +544,30 @@ export default (io: Server, socket: Socket) => {
         logger.error(err);
         return;
       }
-
+      const updatedTrip = await Trip.findOneAndUpdate(
+        {
+          _id: tripId,
+          status: { $in: ['requested', 'negotiating'] },
+          driverId: null,
+        },
+        {
+          $set: {
+            driverId,
+            status: 'accepted',
+            fare: amount,
+            acceptedAt: new Date(),
+          },
+        },
+        { new: true },
+      );
+      if (!updatedTrip) {
+        cb?.({
+          success: false,
+          trip,
+          error: 'Trip already taken or not acceptable',
+        });
+        return;
+      }
       // const maxNegotiations = trip.maxNegotiations || 3;
       // if (trip.negotiationCount > maxNegotiations) {
       //   cb?.({
@@ -686,6 +710,31 @@ export default (io: Server, socket: Socket) => {
           error: `هذا السائق غير متاح حاليا`,
           trip,
         };
+        const updatedTrip = await Trip.findOneAndUpdate(
+          {
+            _id: tripId,
+            status: { $in: ['requested', 'negotiating'] },
+            driverId: null,
+          },
+          {
+            $set: {
+              driverId,
+              status: 'accepted',
+              fare: trip.fare,
+              acceptedAt: new Date(),
+            },
+          },
+          { new: true },
+        );
+        if (!updatedTrip) {
+          cb?.({
+            success: false,
+            trip,
+            error: 'Trip already taken or not acceptable',
+          });
+          return;
+        }
+
         cb?.(err);
         io.to(roomName).emit('trip:started', {
           tripId,
@@ -764,12 +813,15 @@ export default (io: Server, socket: Socket) => {
         return;
       }
 
-      const driver = await Driver.findOne({ driverId });
+      const driver = driverId ? await Driver.findOne({ driverId }) : null;
+      if (driver) {
+        driver.runningTrip = null;
+        await driver.save();
+      }
       if (!driver) {
         cb?.({ success: false, error: 'Driver not found' });
         return;
       }
-
       const trip = await Trip.findById(tripId);
       if (!trip) {
         cb?.({ success: false, error: 'Trip not found' });
@@ -851,7 +903,7 @@ export default (io: Server, socket: Socket) => {
         }
 
         const trip = await Trip.findByIdAndUpdate(
-          tripId,
+          { _id: tripId },
           { $set: { status } },
           { new: true },
         );
@@ -887,18 +939,40 @@ export default (io: Server, socket: Socket) => {
         });
         return;
       }
+      const existing = await Trip.findById(tripId);
+      if (!existing) return cb?.({ success: false, error: 'Trip not found' });
+      if (['negotiating', 'requested'].includes(existing.status))
+        return cb?.({
+          success: false,
+          error: 'هذه الرحله لم تبدا بعد',
+          trip: existing,
+        });
+      if (existing.status === 'cancelled')
+        return cb?.({
+          success: false,
+          error: 'هذه الرحله تم الغائها من قبل العميل',
+          trip: existing,
+        });
 
-      const trip = await Trip.findByIdAndUpdate(
-        tripId,
+      const trip = await Trip.findOneAndUpdate(
         {
-          $set: {
-            status: 'completed',
-
-            completedAt: new Date(),
-          },
+          _id: tripId,
+          status: { $in: ['running', 'driver_arrived', 'driver_on_the_way'] },
         },
+        { $set: { status: 'completed', completedAt: new Date() } },
         { new: true },
       );
+      // const trip = await Trip.findByIdAndUpdate(
+      //   tripId,
+      //   {
+      //     $set: {
+      //       status: 'completed',
+
+      //       completedAt: new Date(),
+      //     },
+      //   },
+      //   { new: true },
+      // );
 
       if (!trip) {
         cb?.({ success: false, error: 'Trip not found', trip });
@@ -1979,17 +2053,41 @@ export default (io: Server, socket: Socket) => {
         await offer.save();
 
         // ── update trip: stamp accepted fare + driverId ──
-        const updatedTrip = await Trip.findByIdAndUpdate(
-          offer.tripId,
+        // const updatedTrip = await Trip.findByIdAndUpdate(
+        //   offer.tripId,
+        //   {
+        //     $set: {
+        //       fare: offer.amount,
+        //       driverId: offer.driverId,
+        //       status: 'accepted',
+        //     },
+        //   },
+        //   { new: true },
+        // );
+        const updatedTrip = await Trip.findOneAndUpdate(
+          {
+            _id: trip._id,
+            status: { $in: ['requested', 'negotiating'] },
+            driverId: null,
+          },
           {
             $set: {
-              fare: offer.amount,
               driverId: offer.driverId,
               status: 'accepted',
+              fare: offer.amount,
+              acceptedAt: new Date(),
             },
           },
           { new: true },
         );
+        if (!updatedTrip) {
+          cb?.({
+            success: false,
+            trip,
+            error: 'Trip already taken or not acceptable',
+          });
+          return;
+        }
 
         const roomName = tripRoom(offer.tripId);
         const payload = {
